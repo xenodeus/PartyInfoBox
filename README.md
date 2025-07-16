@@ -201,6 +201,22 @@ The addon uses a modular helper system:
 2. Check file permissions in Windower data folder
 3. Reload addon: `//pib reload`
 
+## Known Issues
+
+### Party Data After Zoning
+Sometimes after zoning into certain areas, party data may appear incomplete or missing. This can occur due to packet loss or data conflicts during the zone transition.
+
+**Symptoms:**
+- Missing party members in display
+- Incorrect or outdated party information
+- Empty party data despite being in a party
+
+**Solutions:**
+- `//pib refresh` - Refresh party data (quickest fix)
+- `//pib reload` - Reload the entire addon (more thorough)
+
+This issue is typically temporary and resolves itself with the above commands.
+
 ## Changelog
 
 ### v1.1.0
