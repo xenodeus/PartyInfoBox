@@ -59,7 +59,7 @@ GLOBAL STATE:
 -- Addon metadata - Required by Windower for addon registration
 _addon.name = 'PartyInfoBox'
 _addon.author = 'Xenodeus'
-_addon.version = '1.0.0'
+_addon.version = '1.1.0'
 _addon.commands = {'PartyInfoBox', 'pib'}  -- Chat commands that trigger this addon
 _addon.shortname = 'pib'                   -- Short form for commands
 
@@ -84,6 +84,7 @@ helpers_display = require('helpers/display')       -- Display rendering and form
 -- Global state variables - Accessible by all helpers
 player_id = nil                 -- Current player's unique ID (set during login)
 demo_mode = false               -- Whether demo mode is active (affects data source)
+zoning = false                  -- Whether the player is currently zoning (affects display updates)
 
 -- Initialize the addon
 helpers_config.load_settings()  -- Load user configuration from XML file

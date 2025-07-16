@@ -30,12 +30,46 @@ Parameters are validated before processing
 
 local helpers_commands = {}
 
+-- Color command mappings - maps command names to config color keys
+local color_commands = {
+    timestamp_color = 'timestamp',
+    header_color = 'header',
+    npc_color = 'npc',
+    unclaimed_color = 'unclaimed_mob',
+    claimed_color = 'other_claimed',
+    distance_close_color = 'distance_close',
+    distance_medium_color = 'distance_medium',
+    distance_far_color = 'distance_far',
+    distance_very_far_color = 'distance_very_far',
+    member_close_color = 'member_distance_close',
+    member_medium_color = 'member_distance_medium',
+    member_far_color = 'member_distance_far',
+    member_very_far_color = 'member_distance_very_far',
+    state_idle_color = 'state_idle',
+    state_moving_color = 'state_moving',
+    state_engaged_color = 'state_engaged',
+    state_dead_color = 'state_dead',
+    state_other_color = 'state_other'
+}
+
+-- Display command mappings - maps command names to display types
+local display_commands = {
+    header = 'header',
+    separators = 'separators', 
+    dividers = 'dividers',
+    cache_timestamp = 'cache_timestamp',
+    display_timestamp = 'display_timestamp'
+}
+
 -- Handle all addon commands
 function helpers_commands.handle_command(commands)
     commands[1] = commands[1] and commands[1]:lower() or ''
     
     -- Basic addon commands
     if commands[1] == 'reload' then
+        if commands[2] and commands[2]:lower() == 'all' then
+            windower.send_command('send @others lua reload ' .. _addon.name)
+        end
         windower.send_command('lua reload ' .. _addon.name)
     elseif commands[1] == 'save' then
         helpers_config.save_settings(helpers_display.display)
@@ -99,11 +133,18 @@ function helpers_commands.handle_command(commands)
         end
         
     elseif commands[1] == 'refresh' then
+        if commands[2] and commands[2]:lower() == 'all' then
+            local silent = commands[3] and commands[3]:lower() == 'silent' and true or false
+            windower.send_command('send @others ' .. _addon.name .. ' refresh silent')
+        end
         if demo_mode then
             helpers_chat.add_error_to_chat('Use "pib demo refresh" to refresh demo data.')
         else
             helpers_party.cache_party_members()
-            helpers_chat.add_info_to_chat('Party data refreshed')
+            local silent = commands[2] and commands[2]:lower() == 'silent' and true or false
+            if not silent then
+                helpers_chat.add_info_to_chat('Party data refreshed')
+            end
         end
     
     -- Party control commands
@@ -131,20 +172,23 @@ function helpers_commands.handle_command(commands)
         helpers_chat.add_info_to_chat('  Target Distance: ' .. (helpers_config.settings.columns.target_distance and ('enabled'):color(158) or ('disabled'):color(167)), true)
 
     -- Display control commands
-    elseif commands[1] == 'header' then
-        helpers_commands.handle_display_command(commands, 'header')
-    
-    elseif commands[1] == 'separators' then
-        helpers_commands.handle_display_command(commands, 'separators')
-    
-    elseif commands[1] == 'dividers' then
-        helpers_commands.handle_display_command(commands, 'dividers')
-    
     elseif commands[1] == 'display' then
         helpers_chat.add_info_to_chat('display settings:')
         helpers_chat.add_info_to_chat('  Addon header: ' .. (helpers_config.settings.display.show_addon_header and ('enabled'):color(158) or ('disabled'):color(167)), true)
         helpers_chat.add_info_to_chat('  Separator lines: ' .. (helpers_config.settings.display.show_separator_lines and ('enabled'):color(158) or ('disabled'):color(167)), true)
         helpers_chat.add_info_to_chat('  Column dividers: ' .. (helpers_config.settings.display.use_column_dividers and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Cache timestamp: ' .. (helpers_config.settings.display.show_cache_timestamp and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Display timestamp: ' .. (helpers_config.settings.display.show_display_timestamp and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        
+    elseif display_commands[commands[1]] then
+        helpers_commands.handle_display_command(commands, display_commands[commands[1]])
+    
+    -- Colors control commands
+    elseif commands[1] == 'colors' then
+        helpers_commands.show_color_status()
+
+    elseif color_commands[commands[1]] then
+        helpers_commands.handle_color_command(commands, color_commands[commands[1]])
 
     -- Focus behavior commands
     elseif commands[1] == 'focus' and commands[2] then
@@ -152,8 +196,27 @@ function helpers_commands.handle_command(commands)
     
     elseif commands[1] == 'focus' then
         helpers_chat.add_info_to_chat('focus settings:')
-        helpers_chat.add_info_to_chat('  Require focus for updates: ' .. (helpers_config.settings.focus.require_focus_for_updates and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Require focus for update: ' .. (helpers_config.settings.focus.require_focus_for_update and ('enabled'):color(158) or ('disabled'):color(167)), true)
         helpers_chat.add_info_to_chat('  Hide when not focused: ' .. (helpers_config.settings.focus.hide_when_not_focused and ('enabled'):color(158) or ('disabled'):color(167)), true)
+
+    elseif commands[1] == 'debug' then
+        if commands[2] and commands[2]:lower() == 'party' then
+            if commands[3] then
+                windower.add_to_chat(8, 'windower.ffxi.get_party()['..commands[3]:lower()..']:')
+                table.vprint(windower.ffxi.get_party()[commands[3]:lower()])
+            else
+                windower.add_to_chat(8, 'windower.ffxi.get_party():')
+                table.vprint(windower.ffxi.get_party())
+            end
+        elseif commands[2] and commands[2]:lower() == 'tracked' then
+            if commands[3] then
+                windower.add_to_chat(8, 'helpers_display.tracked_party_members['..commands[3]..']:')
+                table.vprint(helpers_display.tracked_party_members[tonumber(commands[3])])
+            else
+                windower.add_to_chat(8, 'helpers_display.tracked_party_members:')
+                table.vprint(helpers_display.tracked_party_members)
+            end
+        end
 
     -- Help command (default)
     else
@@ -284,6 +347,28 @@ function helpers_commands.handle_display_command(commands, command_type)
             helpers_config.settings.display.use_column_dividers = not helpers_config.settings.display.use_column_dividers
             helpers_chat.add_info_to_chat('Column dividers ' .. (helpers_config.settings.display.use_column_dividers and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
         end
+    elseif command_type == 'cache_timestamp' then
+        if action == 'on' or action == 'enable' or action == 'true' then
+            helpers_config.settings.display.show_cache_timestamp = true
+            helpers_chat.add_info_to_chat('Cache timestamp ' .. ('enabled'):color(158) .. '.')
+        elseif action == 'off' or action == 'disable' or action == 'false' then
+            helpers_config.settings.display.show_cache_timestamp = false
+            helpers_chat.add_info_to_chat('Cache timestamp ' .. ('disabled'):color(167) .. '.')
+        else -- toggle
+            helpers_config.settings.display.show_cache_timestamp = not helpers_config.settings.display.show_cache_timestamp
+            helpers_chat.add_info_to_chat('Cache timestamp ' .. (helpers_config.settings.display.show_cache_timestamp and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
+        end
+    elseif command_type == 'display_timestamp' then
+        if action == 'on' or action == 'enable' or action == 'true' then
+            helpers_config.settings.display.show_display_timestamp = true
+            helpers_chat.add_info_to_chat('Display timestamp ' .. ('enabled'):color(158) .. '.')
+        elseif action == 'off' or action == 'disable' or action == 'false' then
+            helpers_config.settings.display.show_display_timestamp = false
+            helpers_chat.add_info_to_chat('Display timestamp ' .. ('disabled'):color(167) .. '.')
+        else -- toggle
+            helpers_config.settings.display.show_display_timestamp = not helpers_config.settings.display.show_display_timestamp
+            helpers_chat.add_info_to_chat('Display timestamp ' .. (helpers_config.settings.display.show_display_timestamp and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
+        end
     end
     
     helpers_display.update_display()
@@ -294,16 +379,16 @@ function helpers_commands.handle_focus_command(commands)
     local focus_option = commands[2]:lower()
     local action = commands[3] and commands[3]:lower() or 'toggle'
     
-    if focus_option == 'updates' or focus_option == 'require_updates' then
+    if focus_option == 'update' or focus_option == 'require_update' then
         if action == 'on' or action == 'enable' or action == 'true' then
-            helpers_config.settings.focus.require_focus_for_updates = true
-            helpers_chat.add_info_to_chat('Focus required for updates ' .. ('enabled'):color(158) .. '.')
+            helpers_config.settings.focus.require_focus_for_update = true
+            helpers_chat.add_info_to_chat('Focus required for update ' .. ('enabled'):color(158) .. '.')
         elseif action == 'off' or action == 'disable' or action == 'false' then
-            helpers_config.settings.focus.require_focus_for_updates = false
-            helpers_chat.add_info_to_chat('Focus required for updates ' .. ('disabled'):color(167) .. '.')
+            helpers_config.settings.focus.require_focus_for_update = false
+            helpers_chat.add_info_to_chat('Focus required for update ' .. ('disabled'):color(167) .. '.')
         else -- toggle
-            helpers_config.settings.focus.require_focus_for_updates = not helpers_config.settings.focus.require_focus_for_updates
-            helpers_chat.add_info_to_chat('Focus required for updates ' .. (helpers_config.settings.focus.require_focus_for_updates and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
+            helpers_config.settings.focus.require_focus_for_update = not helpers_config.settings.focus.require_focus_for_update
+            helpers_chat.add_info_to_chat('Focus required for update ' .. (helpers_config.settings.focus.require_focus_for_update and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
         end
     elseif focus_option == 'hide' or focus_option == 'hide_unfocused' then
         if action == 'on' or action == 'enable' or action == 'true' then
@@ -317,8 +402,55 @@ function helpers_commands.handle_focus_command(commands)
             helpers_chat.add_info_to_chat('Hide when not focused ' .. (helpers_config.settings.focus.hide_when_not_focused and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
         end
     else
-        helpers_chat.add_error_to_chat('Unknown focus setting "' .. focus_option .. '". Available: updates, hide')
+        helpers_chat.add_error_to_chat('Unknown focus setting "' .. focus_option .. '". Available: update, hide')
     end
+end
+
+-- Handle generic color command
+function helpers_commands.handle_color_command(commands, color_type)
+    if commands[2] and commands[3] and commands[4] then
+        local r, g, b = tonumber(commands[2]), tonumber(commands[3]), tonumber(commands[4])
+        if r and g and b and r >= 0 and r <= 255 and g >= 0 and g <= 255 and b >= 0 and b <= 255 then
+            helpers_config.settings.colors[color_type].red = r
+            helpers_config.settings.colors[color_type].green = g
+            helpers_config.settings.colors[color_type].blue = b
+            local friendly_name = color_type:gsub("_", " "):gsub("^%l", string.upper)
+            helpers_chat.add_info_to_chat(friendly_name .. ' color set to RGB(' .. r .. ', ' .. g .. ', ' .. b .. ')')
+            helpers_display.update_display()
+        else
+            helpers_chat.add_error_to_chat('Invalid RGB values. Must be 0-255')
+        end
+    else
+        local color = helpers_config.settings.colors[color_type]
+        local friendly_name = color_type:gsub("_", " ")
+        helpers_chat.add_info_to_chat('Current ' .. friendly_name .. ' color: RGB(' .. color.red .. ', ' .. color.green .. ', ' .. color.blue .. ')')
+    end
+end
+
+-- Show all color settings
+function helpers_commands.show_color_status()
+    helpers_chat.add_info_to_chat('color settings:')
+    helpers_chat.add_info_to_chat('  Header: RGB(' .. helpers_config.settings.colors.header.red .. ', ' .. helpers_config.settings.colors.header.green .. ', ' .. helpers_config.settings.colors.header.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Timestamp: RGB(' .. helpers_config.settings.colors.timestamp.red .. ', ' .. helpers_config.settings.colors.timestamp.green .. ', ' .. helpers_config.settings.colors.timestamp.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  NPC: RGB(' .. helpers_config.settings.colors.npc.red .. ', ' .. helpers_config.settings.colors.npc.green .. ', ' .. helpers_config.settings.colors.npc.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Unclaimed mob: RGB(' .. helpers_config.settings.colors.unclaimed_mob.red .. ', ' .. helpers_config.settings.colors.unclaimed_mob.green .. ', ' .. helpers_config.settings.colors.unclaimed_mob.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Other claimed: RGB(' .. helpers_config.settings.colors.other_claimed.red .. ', ' .. helpers_config.settings.colors.other_claimed.green .. ', ' .. helpers_config.settings.colors.other_claimed.blue .. ')', true)
+    helpers_chat.add_info_to_chat('Distance colors:', true)
+    helpers_chat.add_info_to_chat('  Close: RGB(' .. helpers_config.settings.colors.distance_close.red .. ', ' .. helpers_config.settings.colors.distance_close.green .. ', ' .. helpers_config.settings.colors.distance_close.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Medium: RGB(' .. helpers_config.settings.colors.distance_medium.red .. ', ' .. helpers_config.settings.colors.distance_medium.green .. ', ' .. helpers_config.settings.colors.distance_medium.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Far: RGB(' .. helpers_config.settings.colors.distance_far.red .. ', ' .. helpers_config.settings.colors.distance_far.green .. ', ' .. helpers_config.settings.colors.distance_far.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Very far: RGB(' .. helpers_config.settings.colors.distance_very_far.red .. ', ' .. helpers_config.settings.colors.distance_very_far.green .. ', ' .. helpers_config.settings.colors.distance_very_far.blue .. ')', true)
+    helpers_chat.add_info_to_chat('Member distance colors:', true)
+    helpers_chat.add_info_to_chat('  Close: RGB(' .. helpers_config.settings.colors.member_distance_close.red .. ', ' .. helpers_config.settings.colors.member_distance_close.green .. ', ' .. helpers_config.settings.colors.member_distance_close.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Medium: RGB(' .. helpers_config.settings.colors.member_distance_medium.red .. ', ' .. helpers_config.settings.colors.member_distance_medium.green .. ', ' .. helpers_config.settings.colors.member_distance_medium.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Far: RGB(' .. helpers_config.settings.colors.member_distance_far.red .. ', ' .. helpers_config.settings.colors.member_distance_far.green .. ', ' .. helpers_config.settings.colors.member_distance_far.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Very far: RGB(' .. helpers_config.settings.colors.member_distance_very_far.red .. ', ' .. helpers_config.settings.colors.member_distance_very_far.green .. ', ' .. helpers_config.settings.colors.member_distance_very_far.blue .. ')', true)
+    helpers_chat.add_info_to_chat('State colors:', true)
+    helpers_chat.add_info_to_chat('  Idle: RGB(' .. helpers_config.settings.colors.state_idle.red .. ', ' .. helpers_config.settings.colors.state_idle.green .. ', ' .. helpers_config.settings.colors.state_idle.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Moving: RGB(' .. helpers_config.settings.colors.state_moving.red .. ', ' .. helpers_config.settings.colors.state_moving.green .. ', ' .. helpers_config.settings.colors.state_moving.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Engaged: RGB(' .. helpers_config.settings.colors.state_engaged.red .. ', ' .. helpers_config.settings.colors.state_engaged.green .. ', ' .. helpers_config.settings.colors.state_engaged.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Dead: RGB(' .. helpers_config.settings.colors.state_dead.red .. ', ' .. helpers_config.settings.colors.state_dead.green .. ', ' .. helpers_config.settings.colors.state_dead.blue .. ')', true)
+    helpers_chat.add_info_to_chat('  Other: RGB(' .. helpers_config.settings.colors.state_other.red .. ', ' .. helpers_config.settings.colors.state_other.green .. ', ' .. helpers_config.settings.colors.state_other.blue .. ')', true)
 end
 
 -- Show help information
@@ -334,11 +466,21 @@ function helpers_commands.show_help()
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('header'):color(220)..' ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control addon header', true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('separators'):color(220)..' ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control separator lines', true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('dividers'):color(220)..' ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control column dividers', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('cache_timestamp'):color(220)..' ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control cache timestamp display', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('display_timestamp'):color(220)..' ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control display timestamp display', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('colors'):color(220)..' - show all color settings', true)
+    helpers_chat.add_info_to_chat('Color commands (set with '..('<r> <g> <b>'):color(167)..'):', true)
+    helpers_chat.add_info_to_chat('  '..('header_color'):color(220)..', '..('timestamp_color'):color(220)..', '..('npc_color'):color(220)..', '..('unclaimed_color'):color(220)..', '..('claimed_color'):color(220), true)
+    helpers_chat.add_info_to_chat('  '..('distance_close_color'):color(220)..', '..('distance_medium_color'):color(220)..', '..('distance_far_color'):color(220)..', '..('distance_very_far_color'):color(220), true)
+    helpers_chat.add_info_to_chat('  '..('member_close_color'):color(220)..', '..('member_medium_color'):color(220)..', '..('member_far_color'):color(220)..', '..('member_very_far_color'):color(220), true)
+    helpers_chat.add_info_to_chat('  '..('state_idle_color'):color(220)..', '..('state_moving_color'):color(220)..', '..('state_engaged_color'):color(220)..', '..('state_dead_color'):color(220)..', '..('state_other_color'):color(220), true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('display'):color(220)..' - show display settings', true)
-    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('focus'):color(220)..' ['..('updates'):color(208)..'|'..('hide'):color(208)..'] ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control focus behavior', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('focus'):color(220)..' ['..('update'):color(208)..'|'..('hide'):color(208)..'] ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control focus behavior', true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('focus'):color(220)..' - show focus settings', true)
     helpers_chat.add_info_to_chat('  Party names: p1, a1, a2', true)
     helpers_chat.add_info_to_chat('  Column names: pos, pdist, char, state, target, tdist', true)
+    helpers_chat.add_info_to_chat('  Focus options: update, hide', true)
+    helpers_chat.add_info_to_chat('  Commands using ['..('all'):color(208)..'] as parameter: reload, refresh', true)
 end
 
 return helpers_commands

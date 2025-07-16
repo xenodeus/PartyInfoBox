@@ -34,13 +34,17 @@ MOVEMENT TRACKING:
 
 local helpers_party = {}
 
+require('logger')
+
 -- Party-specific variables (moved from main file)
 local party_member_cache = {}             -- Cache of party member data
-local party_cache_update_pending = false  -- Prevents duplicate party cache updates
+--local party_cache_update_pending = false  -- Prevents duplicate party cache updates
 local movement_tracker = {}               -- Tracking positions for movement detection
+local last_cache_update = nil             -- Timestamp of the last cache update
 
 -- Update the cache of party members and their data
 function helpers_party.cache_party_members()
+    --helpers_chat.add_info_to_chat('Caching party members...')
     -- Clear existing data
     helpers_display.tracked_party_members = {}
     party_member_cache = {}
@@ -54,7 +58,8 @@ function helpers_party.cache_party_members()
     -- Process each enabled party type
     if helpers_config.settings.parties.party then
         for i=0, (party.party1_count or 0) - 1 do
-            helpers_party.store_party_member_data(party['p'..i], 1, 'P1-'..(i+1))
+            party_index = 'p'..i
+            helpers_party.store_party_member_data(party['p'..i], 1, 'P1-'..(i+1), party_index)
             if party['p'..i] and party['p'..i].mob then
                 current_party_ids[party['p'..i].mob.id] = true
             end
@@ -63,7 +68,8 @@ function helpers_party.cache_party_members()
     
     if helpers_config.settings.parties.alliance1 then
         for i=0, (party.party2_count or 0) - 1 do
-            helpers_party.store_party_member_data(party['a1'..i], 2, 'A1-'..(i+1))
+            party_index = 'a1'..i
+            helpers_party.store_party_member_data(party['a1'..i], 2, 'A1-'..(i+1), party_index)
             if party['a1'..i] and party['a1'..i].mob then
                 current_party_ids[party['a1'..i].mob.id] = true
             end
@@ -72,7 +78,8 @@ function helpers_party.cache_party_members()
     
     if helpers_config.settings.parties.alliance2 then
         for i=0, (party.party3_count or 0) - 1 do
-            helpers_party.store_party_member_data(party['a2'..i], 3, 'A2-'..(i+1))
+            party_index = 'a2'..i
+            helpers_party.store_party_member_data(party['a2'..i], 3, 'A2-'..(i+1), party_index)
             if party['a2'..i] and party['a2'..i].mob then
                 current_party_ids[party['a2'..i].mob.id] = true
             end
@@ -86,19 +93,22 @@ function helpers_party.cache_party_members()
         end
     end
     
-    -- Update display after caching
-    helpers_display.update_display()
+    last_cache_update = os.date("%H:%M:%S")  -- Store current time
 end
 
 -- Cache data for a single party member
-function helpers_party.store_party_member_data(party_member, party_number, party_position)
+function helpers_party.store_party_member_data(party_member, party_number, party_position, party_index)
     if party_member and party_member.mob then
+        --windower.add_to_chat(207, T{windower.ffxi.get_party()['p1']}:tovstring())
+        --T{windower.ffxi.get_party()['p1']}:vprint()
         -- Store party member info
         party_member_cache[party_member.mob.id] = {is_pc = true, party = party_number}
         table.insert(helpers_display.tracked_party_members, {
+            party_index = party_index,
             player_position = party_position,
             player_id = party_member.mob.id,
-            player_name = party_member.mob.name or ''
+            player_name = party_member.mob.name or '',
+            dummy = false
         })
         
         -- Also track their pet if they have one
@@ -108,7 +118,29 @@ function helpers_party.store_party_member_data(party_member, party_number, party
                 party_member_cache[pet.id] = {is_pet = true, owner = party_member.id, party = party_number}
             end
         end
+    else
+        --if party_member then windower.add_to_chat(207, T(party_member):tovstring()) end
+        party_member_cache['dummy_'..party_position] = {is_pc = true, party = party_number}
+        table.insert(helpers_display.tracked_party_members, {
+            party_index = party_index,
+            player_position = party_position,
+            player_id = nil,
+            player_name = party_member.name or '--',
+            dummy = true
+        })
     end
+end
+
+function helpers_party.dummy_members_need_update()
+    -- for each tracked_party_member, check for each player_id starting with 'dummy_'
+    for _, member in ipairs(helpers_display.tracked_party_members) do
+        if member.dummy then
+            if windower.ffxi.get_party()[member.party_index] and windower.ffxi.get_party()[member.party_index].mob and windower.ffxi.get_party()[member.party_index].mob.id then
+                return true  -- At least one dummy member has valid data
+            end
+        end
+    end
+    return false
 end
 
 -- Check if a party member has moved since last update (for movement detection)
@@ -146,7 +178,7 @@ end
 -- Determine party member state based on status ID and movement
 -- Returns: state_name (string), state_color (color table)
 function helpers_party.get_member_state_info(mob)
-    if not mob then return 'Unknown', helpers_config.settings.colors.state_other end
+    if not mob then return '--', helpers_config.settings.colors.state_idle end
     
     local status_id = mob.status
     
@@ -206,6 +238,7 @@ function helpers_party.is_party_member_or_pet(mob_id)
     return party_member_cache[mob_id], party_member_cache[mob_id].party
 end
 
+--[[
 -- Get party cache update pending status
 function helpers_party.is_cache_update_pending()
     return party_cache_update_pending
@@ -215,10 +248,16 @@ end
 function helpers_party.set_cache_update_pending(status)
     party_cache_update_pending = status
 end
+]]--
 
 -- Clear movement tracker (for zone changes)
 function helpers_party.clear_movement_tracker()
     movement_tracker = {}
+end
+
+-- Get the last cache update time
+function helpers_party.get_last_cache_update()
+    return last_cache_update or "Never"
 end
 
 return helpers_party

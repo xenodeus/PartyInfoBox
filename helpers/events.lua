@@ -34,18 +34,25 @@ local helpers_events = {}
 -- Handle incoming network packets to detect party changes
 -- Monitors specific packet types that indicate party composition has changed
 function helpers_events.handle_party_packets(id, data)
+    -- Schedule party cache update to avoid spam during rapid changes
+    --if not helpers_party.is_cache_update_pending() then
+        --helpers_party.set_cache_update_pending(true)
+        coroutine.schedule(function()
+            if not demo_mode then
+                helpers_party.cache_party_members()
+            end
+            --helpers_party.set_cache_update_pending(false)
+        end, helpers_config.settings.timing.party_update_delay)
+    --end
+end
+
+function helpers_events.incoming_chunk(id, data)
+    -- Handle specific packet types that indicate party changes
     if id == 0x0DD then  -- Party update packet
-        -- Schedule party cache update to avoid spam during rapid changes
-        if not helpers_party.is_cache_update_pending() then
-            helpers_party.set_cache_update_pending(true)
-            coroutine.schedule(function()
-                if not demo_mode then
-                    helpers_party.cache_party_members()
-                end
-                helpers_party.set_cache_update_pending(false)
-            end, helpers_config.settings.timing.party_update_delay)
-        end
-    end
+        helpers_events.handle_party_packets(id, data)
+    elseif id == 0xB then
+		zoning = true
+	end
 end
 
 -- Main update loop - runs every frame
@@ -53,12 +60,24 @@ end
 function helpers_events.prerender()
     -- Safety checks - don't display if nothing is enabled
     if not helpers_config.any_columns_enabled() then
-        if helpers_display.display then helpers_display.display:hide() end
+        if helpers_display.display and texts.visible(helpers_display.display) then helpers_display.display:hide() end
         return
     end
     
     if not helpers_config.any_parties_enabled() then
-        if helpers_display.display then helpers_display.display:hide() end
+        if helpers_display.display and texts.visible(helpers_display.display) then helpers_display.display:hide() end
+        return
+    end
+
+    -- Hide display if focus is lost and hiding is enabled
+    if helpers_config.settings.focus.hide_when_not_focused and not windower.has_focus() then
+        if helpers_display.display and texts.visible(helpers_display.display) then helpers_display.display:hide() end
+        return
+    end
+
+    if zoning then
+        -- If zoning, don't update display until zone change is complete
+        if helpers_display.display and texts.visible(helpers_display.display) then helpers_display.display:hide() end
         return
     end
     
@@ -78,14 +97,10 @@ function helpers_events.prerender()
     local now = os.time()
     if now - helpers_display.last_update >= helpers_config.settings.update_frequency then
         helpers_display.last_update = now
-        
         -- Only update if logged into the game
         if windower.ffxi.get_info().logged_in then
             -- Check if window focus is required for updates
-            local has_focus = windower.has_focus()
-            local should_update = not helpers_config.settings.focus.require_focus_for_updates or has_focus
-            
-            if should_update then
+            if not helpers_config.settings.focus.require_focus_for_update or windower.has_focus() then
                 -- Count party members from enabled parties only
                 local party_count = 0
                 if windower.ffxi.get_party() then
@@ -99,22 +114,18 @@ function helpers_events.prerender()
                         party_count = party_count + (windower.ffxi.get_party().party3_count or 0)
                     end
                 end
-                
                 -- Update cache if party size changed, otherwise just update display
                 if party_count > 1 and #helpers_display.tracked_party_members ~= party_count then
+                    --helpers_chat.add_info_to_chat("Party size changed, updating cache...")
+                    --helpers_chat.add_info_to_chat("Current party count: " .. party_count)
+                    --helpers_chat.add_info_to_chat("Current tracked party size: " .. #helpers_display.tracked_party_members)
                     helpers_party.cache_party_members()
-                else
-                    helpers_display.update_display()
                 end
-            end
-            
-            -- Hide display if focus is lost and hiding is enabled
-            if helpers_config.settings.focus.hide_when_not_focused and not has_focus then
-                if helpers_display.display then helpers_display.display:hide() end
+                helpers_display.update_display()
             end
         else
             -- Not logged in, hide display
-            if helpers_display.display then helpers_display.display:hide() end
+            if helpers_display.display and texts.visible(helpers_display.display) then helpers_display.display:hide() end
         end
     end
 end
@@ -123,16 +134,17 @@ end
 -- Called when player moves between zones/areas
 function helpers_events.zone_change()
     helpers_party.clear_movement_tracker()  -- Movement tracking becomes invalid after zone change
-    if not helpers_party.is_cache_update_pending() then
-        helpers_party.set_cache_update_pending(true)
+    --if not helpers_party.is_cache_update_pending() then --commented out to always update on zone change
+        --helpers_party.set_cache_update_pending(true)
         coroutine.schedule(function()
+            zoning = false  -- Reset zoning state
             -- Double-check demo mode hasn't been enabled during the delay
             if not demo_mode then
                 helpers_party.cache_party_members()
             end
-            helpers_party.set_cache_update_pending(false)
+            --helpers_party.set_cache_update_pending(false)
         end, 7)  -- Wait 7 seconds for zone to stabilize
-    end
+    --end
 end
 
 -- Handle login events
@@ -147,15 +159,15 @@ function helpers_events.login()
         end
         
         -- Schedule party cache update after login delay
-        if not helpers_party.is_cache_update_pending() then
-            helpers_party.set_cache_update_pending(true)
+        --if not helpers_party.is_cache_update_pending() then
+            --helpers_party.set_cache_update_pending(true)
             coroutine.schedule(function()
                 if not demo_mode then
                     helpers_party.cache_party_members()
                 end
-                helpers_party.set_cache_update_pending(false)
+                --helpers_party.set_cache_update_pending(false)
             end, helpers_config.settings.timing.login_delay)
-        end
+        --end
     end
 end
 
@@ -171,15 +183,15 @@ function helpers_events.load()
         end
         
         -- Schedule party cache update after load delay
-        if not helpers_party.is_cache_update_pending() then
-            helpers_party.set_cache_update_pending(true)
+        --if not helpers_party.is_cache_update_pending() then
+            --helpers_party.set_cache_update_pending(true)
             coroutine.schedule(function()
                 if not demo_mode then
                     helpers_party.cache_party_members()
                 end
-                helpers_party.set_cache_update_pending(false)
+                --helpers_party.set_cache_update_pending(false)
             end, helpers_config.settings.timing.login_delay)
-        end
+        --end
     end
 end
 
@@ -204,7 +216,7 @@ end
 -- Sets up all the event listeners with Windower
 function helpers_events.register_all()
     -- Register event handlers
-    windower.register_event('incoming chunk', helpers_events.handle_party_packets)
+    windower.register_event('incoming chunk', helpers_events.incoming_chunk)
     windower.register_event('prerender', helpers_events.prerender)
     windower.register_event('zone change', helpers_events.zone_change)
     windower.register_event('login', helpers_events.login)

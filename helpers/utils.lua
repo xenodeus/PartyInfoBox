@@ -35,6 +35,9 @@ end
 
 -- Determine who has claimed a target (0=unclaimed, 1=player, 2=party, 3=alliance)
 function helpers_utils.check_claim(claim_id)
+    if claim_id == nil then
+        return 0  -- Unclaimed
+    end
     if player_id == claim_id then
         return 1  -- Player claimed
     else
@@ -51,7 +54,9 @@ end
 -- Get appropriate color for a target based on its status and claim
 function helpers_utils.get_tint_by_target(target)
     -- Priority order: dead > claimed status > target type
-    if target.hpp == 0 then
+    if target == nil then
+        return helpers_config.settings.colors.default_grey
+    elseif target.hpp == 0 then
         return helpers_config.settings.colors.dead_target
     elseif helpers_utils.check_claim(target.claim_id) == 1 or helpers_utils.check_claim(target.claim_id) == 2 then
         return helpers_config.settings.colors.player_claimed
@@ -119,6 +124,8 @@ end
 
 -- Determine if a mob ID represents an NPC (not player or pet)
 function helpers_utils.is_npc(mob_id)
+    if not mob then return nil end
+
     local is_pc = mob_id < 0x01000000    -- Player ID range
     local is_pet = mob_id > 0x01000000 and mob_id % 0x1000 > 0x700  -- Pet ID range
 

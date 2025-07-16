@@ -36,6 +36,8 @@ helpers_display.last_update = 0               -- Timestamp of last display updat
 helpers_display.display_visible = true        -- Whether GUI should be shown
 helpers_display.display = nil                 -- Text display object
 
+local last_display_update = nil
+
 -- Initialize the text display object with current settings
 -- Creates a new text overlay with user-configured appearance settings
 function helpers_display.initialize_display()
@@ -51,7 +53,11 @@ function helpers_display.initialize_display()
         text = {
             font = helpers_config.settings.display.font,
             size = helpers_config.settings.display.size,
-            color = helpers_config.settings.display.text_color
+            color = {
+                helpers_config.settings.display.text_color.red,
+                helpers_config.settings.display.text_color.green,
+                helpers_config.settings.display.text_color.blue
+            },
         },
         flags = helpers_config.settings.display.flags,
         bg = {alpha = helpers_config.settings.display.bg_alpha},
@@ -59,6 +65,20 @@ function helpers_display.initialize_display()
         padding = helpers_config.settings.display.padding
     })
     helpers_display.display:hide()  -- Start hidden, will be shown when data is available
+end
+
+-- Add this helper function for right-aligned text:
+local function format_timestamp_line(label, timestamp, max_length)
+    local line = label .. timestamp
+    local padding_needed = max_length - string.len(line)
+    
+    if padding_needed > 0 then
+        -- Add spaces to right-align the timestamp
+        return label .. string.rep(" ", padding_needed) .. timestamp
+    else
+        -- If line is too long, just return as-is
+        return line
+    end
 end
 
 -- Main function to update the display with current party data
@@ -82,6 +102,15 @@ function helpers_display.update_display()
         return
     end
 
+    if helpers_party.dummy_members_need_update() then
+        --helpers_chat.add_error_to_chat('Dummy members need update, refreshing display...')
+        coroutine.schedule(function()
+            -- Force a party update to refresh dummy members
+            windower.send_command(_addon.shortname .. ' refresh silent')
+        end, 1)
+        return
+    end
+
     local formatted_member_data = {}  -- Processed data for each party member
     local party_member_found = false  -- Track if any valid party members exist
     
@@ -96,13 +125,13 @@ function helpers_display.update_display()
     
     -- Get current player information for distance calculations
     local player = windower.ffxi.get_player()
-    local player_mob = player and windower.ffxi.get_mob_by_id(player.id) or nil
+    local player_mob = player and player.id and windower.ffxi.get_mob_by_id(player.id) or nil
     
     -- Process each tracked party member
     for _, tracked_member in ipairs(helpers_display.tracked_party_members) do
         -- Get the mob entity for this party member
-        local member_entity = windower.ffxi.get_mob_by_id(tracked_member.player_id)
-        if member_entity ~= nil then
+        local member_entity = tracked_member.player_id and not tracked_member.dummy and windower.ffxi.get_mob_by_id(tracked_member.player_id) or nil
+        if member_entity ~= nil or tracked_member.dummy then
             party_member_found = true
 
             -- Get basic member information
@@ -114,16 +143,18 @@ function helpers_display.update_display()
             local member_distance_color = helpers_config.settings.colors.default_grey
             local member_distance_text = helpers_config.settings.default_values.member_distance
             
-            -- Distance calculation logic
-            if player_mob and member_entity.id ~= player_id then
-                -- Calculate distance to other party members
-                local distance = helpers_utils.get_distance(player_mob, member_entity)
-                member_distance_color = helpers_utils.get_member_distance_color(distance)
-                member_distance_text = string.format(helpers_config.settings.member_distance_format, distance)
-            elseif member_entity.id == player_id then
-                -- Distance to self is always 0
-                member_distance_text = string.format(helpers_config.settings.member_distance_format, 0.00)
-                member_distance_color = helpers_config.settings.colors.member_distance_close
+            if not tracked_member.dummy then
+                -- Distance calculation logic
+                if player_mob and member_entity.id and member_entity.id ~= player_id then
+                    -- Calculate distance to other party members
+                    local distance = helpers_utils.get_distance(player_mob, member_entity)
+                    member_distance_color = helpers_utils.get_member_distance_color(distance)
+                    member_distance_text = string.format(helpers_config.settings.member_distance_format, distance)
+                elseif member_entity.id == player_id then
+                    -- Distance to self is always 0
+                    member_distance_text = string.format(helpers_config.settings.member_distance_format, 0.00)
+                    member_distance_color = helpers_config.settings.colors.member_distance_close
+                end
             end
             
             -- Get party member state (idle, engaged, moving, etc.)
@@ -137,12 +168,12 @@ function helpers_display.update_display()
             
             -- Get target information for this party member
             local member_target_mob = nil
-            if member_entity.id == player_id then
+            if not tracked_member.dummy and member_entity.id == player_id then
                 -- For the current player, get their current target
                 member_target_mob = windower.ffxi.get_mob_by_target('t')
             else
                 -- For other party members, get their target if available
-                if member_entity.target_index then
+                if not tracked_member.dummy and member_entity.target_index then
                     member_target_mob = windower.ffxi.get_mob_by_index(member_entity.target_index)
                 end
             end
@@ -229,6 +260,29 @@ function helpers_display.update_display()
     if helpers_config.settings.display.show_separator_lines then
         table.insert(lines, string.rep('-', max_line_length))
     end
+
+    -- Update the display timestamp
+    last_display_update = os.date("%H:%M:%S")
+    
+    -- Get cache timestamp from party helper
+    local cache_time = helpers_party.get_last_cache_update()
+    
+    -- Add the two new timestamp lines with right-alignment using existing max_line_length
+    if helpers_config.settings.display.show_cache_timestamp then
+        local cache_line = format_timestamp_line("Cache Updated: ", cache_time, max_line_length)
+        table.insert(lines, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.timestamp)..')%s\\cr', cache_line))
+    end
+    
+    if helpers_config.settings.display.show_display_timestamp then
+        local display_line = format_timestamp_line("Display Updated: ", last_display_update, max_line_length)
+        table.insert(lines, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.timestamp)..')%s\\cr', display_line))
+    end
+
+    -- Add separator line after timestamps if enabled and timestamps were shown
+    if helpers_config.settings.display.show_separator_lines and 
+       (helpers_config.settings.display.show_cache_timestamp or helpers_config.settings.display.show_display_timestamp) then
+        table.insert(lines, string.rep('-', max_line_length))
+    end
     
     -- Build column headers
     local header_parts = {}
@@ -236,7 +290,7 @@ function helpers_display.update_display()
         table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%-'..position_column_width..'s\\cr', 'Pos.'))
     end
     if helpers_config.settings.columns.party_member_distance then
-        table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%'..member_distance_column_width..'s\\cr', 'Dist.'))
+        table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%-'..member_distance_column_width..'s\\cr', 'Dist.'))
     end
     if helpers_config.settings.columns.character_name then
         table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%-'..character_name_column_width..'s\\cr', 'Character'))
@@ -248,7 +302,7 @@ function helpers_display.update_display()
         table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%-'..target_name_column_width..'s\\cr', 'Target'))
     end
     if helpers_config.settings.columns.target_distance then
-        table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%'..target_distance_column_width..'s\\cr', 'Dist.'))
+        table.insert(header_parts, string.format('\\cs('..helpers_utils.color_to_string(helpers_config.settings.colors.header)..')%-'..target_distance_column_width..'s\\cr', 'Dist.'))
     end
     
     -- Join headers with appropriate dividers
@@ -302,7 +356,13 @@ function helpers_display.update_display()
     
     -- Update display with formatted text and show it
     helpers_display.display:text(table.concat(lines, '\n'))
+    --helpers_display.display:text(table.concat(lines, '\n'):gsub(" ", ".")) -- Replace spaces with dots for alignment check
     helpers_display.display:show()
+end
+
+-- Add getter function for display timestamp
+function helpers_display.get_last_display_update()
+    return last_display_update or "Never"
 end
 
 return helpers_display
