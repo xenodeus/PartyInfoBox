@@ -206,6 +206,8 @@ The addon uses a modular helper system:
 ### Party Data After Zoning
 Sometimes after zoning into certain areas, party data may appear incomplete or missing. This can occur due to packet loss or data conflicts during the zone transition.
 
+**Note:** Improvements in v1.1.1 should reduce this issue, but due to its random nature, it may still occasionally occur.
+
 **Symptoms:**
 - Missing party members in display
 - Incorrect or outdated party information
@@ -218,6 +220,11 @@ Sometimes after zoning into certain areas, party data may appear incomplete or m
 This issue is typically temporary and resolves itself with the above commands.
 
 ## Changelog
+
+### v1.1.1
+- **FIXED**: Improved party data handling after zoning to reduce incomplete data issues
+- **ENHANCED**: Better packet loss recovery mechanisms during zone transitions
+- **IMPROVED**: More robust party data refresh logic to handle data conflicts
 
 ### v1.1.0
 - **NEW**: Comprehensive color customization system with RGB controls

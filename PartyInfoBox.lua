@@ -59,7 +59,7 @@ GLOBAL STATE:
 -- Addon metadata - Required by Windower for addon registration
 _addon.name = 'PartyInfoBox'
 _addon.author = 'Xenodeus'
-_addon.version = '1.1.0'
+_addon.version = '1.1.1'
 _addon.commands = {'PartyInfoBox', 'pib'}  -- Chat commands that trigger this addon
 _addon.shortname = 'pib'                   -- Short form for commands
 

@@ -98,7 +98,7 @@ end
 
 -- Cache data for a single party member
 function helpers_party.store_party_member_data(party_member, party_number, party_position, party_index)
-    if party_member and party_member.mob then
+    if party_member and party_member.mob and party_member.mob.id and party_member.mob.id ~= 0 then
         --windower.add_to_chat(207, T{windower.ffxi.get_party()['p1']}:tovstring())
         --T{windower.ffxi.get_party()['p1']}:vprint()
         -- Store party member info
