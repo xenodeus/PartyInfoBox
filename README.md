@@ -14,11 +14,15 @@ PartyInfoBox provides real-time tracking and display of party member information
 - **Character State Detection**: Displays member states (idle, moving, engaged, resting, etc.)
 - **Target Tracking**: Shows what each party member is targeting
 - **Target Distance**: Calculates distances to party member targets
-- **Customizable Display**: Enable/disable specific columns and parties
+- **Compass and Direction**: Shows directional indicators and facing direction for party members
+- **Customizable Display**: Enable/disable specific columns and parties with custom ordering
 
 ### Display Options
-- **Configurable Columns**: Position, Party Distance, Character Name, State, Target, Target Distance
+- **Configurable Columns**: Position, Party Distance, Character Name, State, Target, Target Distance, Compass Direction, Facing Direction
+- **Column Order Management**: Reorder, move, and swap columns with custom arrangements
 - **Visual Customization**: Toggle headers, separators, and column dividers
+- **Compass Indicators**: Customizable directional icons for all 16 directions (N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW)
+- **Data Source Options**: Choose between character or camera positioning for calculations
 - **Timestamp Display**: Show cache and display update timestamps
 - **Color Coding**: Distance-based coloring and state-specific colors
 - **Focus Control**: Hide/show based on game window focus
@@ -66,7 +70,21 @@ All commands use the format: `//partyinfobox <command>` or `//pib <command>`
 ### Column Control
 - `//pib columns` - Show column status
 - `//pib column <name> [on/off/toggle]` - Control columns
-  - Column names: `pos`/`position`, `pdist`/`partydist`/`party_distance`, `char`/`character`/`name`, `state`/`status`, `target`, `tdist`/`targetdist`/`target_distance`
+  - Column names: `pos`/`position`, `pdist`/`partydist`/`party_distance`, `char`/`character`/`name`, `state`/`status`, `target`, `tdist`/`targetdist`/`target_distance`, `compass`, `facing`
+
+### Column Order Management
+- `//pib order` - Show current column order
+- `//pib order move <column> <position>` - Move column to specific position
+- `//pib order swap <column1> <column2>` - Swap two columns
+- `//pib order reset` - Reset to default column order
+
+### Compass and Direction Settings
+- `//pib compass` - Show compass settings
+- `//pib compass icons` - Show current compass icons for all directions
+- `//pib compass icon <direction> <icon>` - Set compass icon for direction (N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW)
+- `//pib data_source` - Show data source settings
+- `//pib data_source compass <character/camera>` - Set compass calculation source
+- `//pib data_source target <member/player>` - Set target calculation method
 
 ### Display Settings
 - `//pib display` - Show current display settings
@@ -117,6 +135,8 @@ All commands use the format: `//partyinfobox <command>` or `//pib <command>`
 | **state** | State | Current activity (idle, moving, engaged, etc.) |
 | **target** | Target | What the party member is targeting |
 | **tdist** | Target Distance | Distance from party member to their target |
+| **compass** | Compass Direction | Directional indicator showing where party member is relative to player |
+| **facing** | Facing Direction | Direction the party member is currently facing |
 
 ## Configuration
 
@@ -124,11 +144,19 @@ Settings are automatically saved to `PartyInfoBox_settings.xml` in your characte
 
 ### Key Settings
 - **Parties**: Enable/disable P1, A1, A2 tracking
-- **Columns**: Control which information columns to display
+- **Columns**: Control which information columns to display and their order
+- **Compass**: Customize directional icons and calculation methods
+- **Data Sources**: Configure compass and target calculation sources
 - **Display**: Header, separators, dividers, timestamps, position, colors
 - **Focus**: Window focus behavior
 - **Timing**: Update frequencies and delays
 - **Colors**: Comprehensive color customization for all elements
+
+### Compass and Direction Settings
+- **Compass Icons**: Customize icons for each of the 8 cardinal and intercardinal directions
+- **Data Source - Compass**: Choose between character position or camera position for directional calculations
+- **Data Source - Target**: Choose between member-based or player-based target distance calculations
+- **Column Order**: Fully customizable column arrangement with move, swap, and reset options
 
 ## Color Coding
 
@@ -220,6 +248,31 @@ Sometimes after zoning into certain areas, party data may appear incomplete or m
 This issue is typically temporary and resolves itself with the above commands.
 
 ## Changelog
+
+### v1.2.0
+- **NEW**: Advanced column system with customizable order and display control
+- **NEW**: Compass and directional indicators for party members and targets
+- **NEW**: Facing direction tracking for party members
+- **NEW**: Data source configuration system for compass and target calculations
+- **NEW**: Customizable compass icons for all 8 directions (N, NE, E, SE, S, SW, W, NW)
+- **NEW**: Column order management with move, swap, and reset commands
+- **NEW**: Extensive command aliases and shortcuts for easier usage
+- **NEW**: Migration system for upgrading settings from older versions
+- **NEW**: Enhanced data source options (character vs camera positioning)
+- **NEW**: Target calculation methods (member-based vs player-based)
+- **ENHANCED**: Massive command system expansion with 390+ lines of new functionality
+- **ENHANCED**: Complete display engine overhaul with 450+ lines of rendering improvements
+- **ENHANCED**: Configuration system with 270+ lines of new settings management
+- **ENHANCED**: Utility functions with 195+ lines of additional calculations
+- **ENHANCED**: Column management with enabled/disabled states and custom headers
+- **ENHANCED**: Help system with comprehensive command documentation
+- **ENHANCED**: Debug commands for party data and tracked member inspection
+- **ENHANCED**: Data source controls for compass and distance calculations
+- **IMPROVED**: Command parsing with extensive alias support
+- **IMPROVED**: Settings validation and migration handling
+- **IMPROVED**: Display formatting with compass and directional data
+- **IMPROVED**: Color system integration with new column types
+- **IMPROVED**: Configuration persistence and backward compatibility
 
 ### v1.1.1
 - **FIXED**: Improved party data handling after zoning to reduce incomplete data issues

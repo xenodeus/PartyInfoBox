@@ -61,6 +61,26 @@ local display_commands = {
     display_timestamp = 'display_timestamp'
 }
 
+-- Data source command mappings - maps command names to setting keys
+local data_source_commands = {
+    party_member_compass_source = 'party_member_compass_source',
+    pmcs = 'party_member_compass_source',  -- Party Member Compass Source
+    target_distance_source = 'target_distance_source', 
+    tds = 'target_distance_source',        -- Target Distance Source
+    target_compass_source = 'target_compass_source',
+    tcs = 'target_compass_source',         -- Target Compass Source
+    target_compass_icon_source = 'target_compass_icon_source',
+    tcis = 'target_compass_icon_source',   -- Target Compass Icon Source
+    target_player_calculation = 'target_player_calculation',
+    tpc = 'target_player_calculation'      -- Target Player Calculation
+}
+
+-- Add column order command mappings after line 63 (after data_source_commands)
+local column_order_commands = {
+    column_order = 'column_order',
+    co = 'column_order'
+}
+
 -- Handle all addon commands
 function helpers_commands.handle_command(commands)
     commands[1] = commands[1] and commands[1]:lower() or ''
@@ -164,12 +184,25 @@ function helpers_commands.handle_command(commands)
     
     elseif commands[1] == 'columns' then
         helpers_chat.add_info_to_chat('column status:')
-        helpers_chat.add_info_to_chat('  Position: ' .. (helpers_config.settings.columns.position and ('enabled'):color(158) or ('disabled'):color(167)), true)
-        helpers_chat.add_info_to_chat('  Party Distance: ' .. (helpers_config.settings.columns.party_member_distance and ('enabled'):color(158) or ('disabled'):color(167)), true)
-        helpers_chat.add_info_to_chat('  Character: ' .. (helpers_config.settings.columns.character_name and ('enabled'):color(158) or ('disabled'):color(167)), true)
-        helpers_chat.add_info_to_chat('  State: ' .. (helpers_config.settings.columns.state and ('enabled'):color(158) or ('disabled'):color(167)), true)
-        helpers_chat.add_info_to_chat('  Target: ' .. (helpers_config.settings.columns.target_name and ('enabled'):color(158) or ('disabled'):color(167)), true)
-        helpers_chat.add_info_to_chat('  Target Distance: ' .. (helpers_config.settings.columns.target_distance and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Position: ' .. (helpers_config.is_column_enabled('position') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Party Distance: ' .. (helpers_config.is_column_enabled('party_member_distance') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Party Compass: ' .. (helpers_config.is_column_enabled('party_member_compass') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Party Compass Icon: ' .. (helpers_config.is_column_enabled('party_member_compass_icon') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Character: ' .. (helpers_config.is_column_enabled('character_name') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Facing: ' .. (helpers_config.is_column_enabled('facing') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  State: ' .. (helpers_config.is_column_enabled('state') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Target: ' .. (helpers_config.is_column_enabled('target_name') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Target Distance: ' .. (helpers_config.is_column_enabled('target_distance') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Target Compass: ' .. (helpers_config.is_column_enabled('target_compass') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+        helpers_chat.add_info_to_chat('  Target Compass Icon: ' .. (helpers_config.is_column_enabled('target_compass_icon') and ('enabled'):color(158) or ('disabled'):color(167)), true)
+
+    -- Column order control commands
+    elseif commands[1] == 'column_order' or commands[1] == 'co' then
+        if commands[2] then
+            helpers_commands.handle_column_order_command(commands)
+        else
+            helpers_commands.show_column_order_status()
+        end
 
     -- Display control commands
     elseif commands[1] == 'display' then
@@ -216,7 +249,37 @@ function helpers_commands.handle_command(commands)
                 windower.add_to_chat(8, 'helpers_display.tracked_party_members:')
                 table.vprint(helpers_display.tracked_party_members)
             end
+        elseif commands[2] and commands[2]:lower() == 'config' then
+            windower.add_to_chat(8, 'helpers_config.settings:')
+            table.vprint(helpers_config.settings)
+        elseif commands[2] and commands[2]:lower() == 'camera' then
+            windower.add_to_chat(8, 'helpers_utils.get_camera_angle():')
+            table.vprint({helpers_utils.get_camera_angle()})
+        elseif commands[2] and commands[2]:lower() == 'player' then
+            windower.add_to_chat(8, 'player:')
+            table.vprint({windower.ffxi.get_player()})
+        elseif commands[2] and commands[2]:lower() == 'facing' then
+            windower.add_to_chat(8, 'facing:')
+            table.vprint({windower.ffxi.get_party()['p0'].mob.facing})
+        elseif commands[2] and commands[2]:lower() == 'facingcamera' then
+            windower.add_to_chat(8, 'facingcamera:')
+            table.vprint({windower.ffxi.get_party()['p0'].mob.facing, helpers_utils.get_camera_angle()})
         end
+
+    -- Data source control commands
+    elseif commands[1] == 'datasource' or commands[1] == 'ds' then
+        if commands[2] then
+            helpers_commands.handle_data_source_command(commands)
+        else
+            helpers_commands.show_data_source_status()
+        end
+    
+    elseif data_source_commands[commands[1]] then
+        helpers_commands.handle_data_source_setting(commands, data_source_commands[commands[1]])
+
+    -- Compass icon command (if this doesn't exist yet)
+    elseif commands[1] == 'compass_icon' then
+        helpers_commands.handle_compass_icon_command(commands)
 
     -- Help command (default)
     else
@@ -277,37 +340,130 @@ function helpers_commands.handle_column_command(commands)
     local column_map = {
         pos = 'position', position = 'position',
         pdist = 'party_member_distance', partydist = 'party_member_distance', party_distance = 'party_member_distance',
+        pcmp = 'party_member_compass', party_member_compass = 'party_member_compass',
+        pdir = 'party_member_compass_icon', picon = 'party_member_compass_icon', party_member_compass_icon = 'party_member_compass_icon',
         char = 'character_name', character = 'character_name', name = 'character_name',
+        facing = 'facing', face = 'facing',
         state = 'state', status = 'state',
         target = 'target_name',
-        tdist = 'target_distance', targetdist = 'target_distance', target_distance = 'target_distance'
+        tdist = 'target_distance', targetdist = 'target_distance', target_distance = 'target_distance',
+        tcmp = 'target_compass', target_compass = 'target_compass',
+        tdir = 'target_compass_icon', ticon = 'target_compass_icon', target_compass_icon = 'target_compass_icon',
     }
     
     local setting_key = column_map[column_identifier]
     if setting_key then
-        if action == 'on' or action == 'enable' or action == 'true' then
-            helpers_config.settings.columns[setting_key] = true
-            helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" '..('enabled'):color(158)..'.')
-        elseif action == 'off' or action == 'disable' or action == 'false' then
-            helpers_config.settings.columns[setting_key] = false
-            helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" '..('disabled'):color(167)..'.')
-        else -- toggle
-            helpers_config.settings.columns[setting_key] = not helpers_config.settings.columns[setting_key]
-            helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" ' .. (helpers_config.settings.columns[setting_key] and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
-        end
-        
-        -- Update display immediately after column change
-        if helpers_config.any_columns_enabled() and helpers_config.any_parties_enabled() then
-            helpers_display.update_display()
-        else
-            if display then display:hide() end
-            if not helpers_config.any_columns_enabled() then
-                helpers_chat.add_info_to_chat('All columns disabled. Display hidden.')
+        -- Find the column in the column_order array
+        local column, index = helpers_config.get_column_by_name(setting_key)
+        if column then
+            if action == 'on' or action == 'enable' or action == 'true' then
+                column.enabled = true
+                helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" '..('enabled'):color(158)..'.')
+            elseif action == 'off' or action == 'disable' or action == 'false' then
+                column.enabled = false
+                helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" '..('disabled'):color(167)..'.')
+            else -- toggle
+                column.enabled = not column.enabled
+                helpers_chat.add_info_to_chat('Column "' .. setting_key .. '" ' .. (column.enabled and ('enabled'):color(158) or ('disabled'):color(167)) .. '.')
             end
+            
+            -- Save the changes
+            helpers_config.save_settings()
+            
+            -- Update display immediately after column change
+            if helpers_config.any_columns_enabled() and helpers_config.any_parties_enabled() then
+                helpers_display.update_display()
+            else
+                if helpers_display.display then helpers_display.display:hide() end
+                if not helpers_config.any_columns_enabled() then
+                    helpers_chat.add_info_to_chat('All columns disabled. Display hidden.')
+                end
+            end
+        else
+            helpers_chat.add_error_to_chat('Column "' .. setting_key .. '" not found in column order.')
         end
     else
         helpers_chat.add_error_to_chat('Unknown column "' .. column_identifier .. '". Available: pos, pdist, char, state, target, tdist')
     end
+end
+
+-- Handle column order commands
+function helpers_commands.handle_column_order_command(commands)
+    local action = commands[2]:lower()
+    
+    if action == 'move' then
+        if not commands[3] or not commands[4] then
+            helpers_chat.add_error_to_chat('Usage: column_order move <column_name> <position>')
+            return
+        end
+        
+        local column_name = commands[3]:lower()
+        local position = tonumber(commands[4])
+        
+        if not position then
+            helpers_chat.add_error_to_chat('Position must be a number')
+            return
+        end
+        
+        if helpers_config.move_column(column_name, position) then
+            helpers_chat.add_success_to_chat('Moved ' .. column_name .. ' to position ' .. position)
+            helpers_config.save_settings()
+            helpers_display.update_display()
+        else
+            helpers_chat.add_error_to_chat('Failed to move column. Check column name and position.')
+        end
+        
+    elseif action == 'swap' then
+        if not commands[3] or not commands[4] then
+            helpers_chat.add_error_to_chat('Usage: column_order swap <column1> <column2>')
+            return
+        end
+        
+        local column1 = commands[3]:lower()
+        local column2 = commands[4]:lower()
+        
+        if helpers_config.swap_columns(column1, column2) then
+            helpers_chat.add_success_to_chat('Swapped ' .. column1 .. ' with ' .. column2)
+            helpers_config.save_settings()
+            helpers_display.update_display()
+        else
+            helpers_chat.add_error_to_chat('Failed to swap columns. Check column names.')
+        end
+        
+    elseif action == 'reset' then
+        helpers_commands.reset_column_order()
+        
+    else
+        helpers_chat.add_error_to_chat('Unknown column order action. Use: move, swap, reset')
+    end
+end
+
+-- Show current column order
+function helpers_commands.show_column_order_status()
+    helpers_chat.add_info_to_chat('Current column order:')
+    for i, column in ipairs(helpers_config.settings.column_order) do
+        local status = column.enabled and 'enabled' or 'disabled'
+        helpers_chat.add_info_to_chat('  ' .. i .. '. ' .. column.name .. ' (' .. status .. ')', true)
+    end
+end
+
+-- Reset column order to default
+function helpers_commands.reset_column_order()
+    helpers_config.settings.column_order = {
+        {name = 'position', enabled = true, header = 'Pos.'},
+        {name = 'party_member_distance', enabled = true, header = 'Dist.'},
+        {name = 'party_member_compass', enabled = false, header = 'Cmp.'},
+        {name = 'party_member_compass_icon', enabled = true, header = 'Dir.'},
+        {name = 'character_name', enabled = true, header = 'Character'},
+        {name = 'state', enabled = true, header = 'State'},
+        {name = 'target_name', enabled = true, header = 'Target'},
+        {name = 'target_distance', enabled = true, header = 'Dist.'},
+        {name = 'target_compass', enabled = false, header = 'Cmp.'},
+        {name = 'target_compass_icon', enabled = true, header = 'Dir.'}
+    }
+    helpers_config.save_settings()
+    helpers_chat.add_success_to_chat('Column order reset to default')
+    helpers_display.update_display()
 end
 
 -- Handle display-specific commands
@@ -477,10 +633,197 @@ function helpers_commands.show_help()
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('display'):color(220)..' - show display settings', true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('focus'):color(220)..' ['..('update'):color(208)..'|'..('hide'):color(208)..'] ['..('on'):color(208)..'|'..('off'):color(208)..'|'..('toggle'):color(208)..'] - control focus behavior', true)
     helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('focus'):color(220)..' - show focus settings', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('compass_icon'):color(220)..' - show all compass icons', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('compass_icon'):color(220)..' '..('<direction>'):color(167)..' ['..('<icon>'):color(167)..'] - set/show compass icon', true)
+    helpers_chat.add_info_to_chat('  Compass directions: N, NE, E, SE, S, SW, W, NW', true)
     helpers_chat.add_info_to_chat('  Party names: p1, a1, a2', true)
-    helpers_chat.add_info_to_chat('  Column names: pos, pdist, char, state, target, tdist', true)
+    helpers_chat.add_info_to_chat('  Column names: pos, pdist, pcmp, pdir, char, state, target, tdist, tcmp, tdir', true)
     helpers_chat.add_info_to_chat('  Focus options: update, hide', true)
     helpers_chat.add_info_to_chat('  Commands using ['..('all'):color(208)..'] as parameter: reload, refresh', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('datasource'):color(220)..' - show data source settings', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('datasource'):color(220)..' '..('<setting>'):color(167)..' ['..('<value>'):color(167)..'] - control data sources', true)
+    helpers_chat.add_info_to_chat('  Data source settings: pmcs, tds, tcs, tcis, tpc (or full names)', true)
+    helpers_chat.add_info_to_chat('  Data source values: character|camera (compass), member|player (target sources)', true)
+    helpers_chat.add_info_to_chat('  Shortcuts: pmcs=party_member_compass_source, tds=target_distance_source,', true)
+    helpers_chat.add_info_to_chat('             tcs=target_compass_source, tcis=target_compass_icon_source, tpc=target_player_calculation', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('column_order'):color(220)..' - show current column order', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('column_order move'):color(220)..' '..('<column>'):color(167)..' '..('<position>'):color(167)..' - move column to position', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('column_order swap'):color(220)..' '..('<col1>'):color(167)..' '..('<col2>'):color(167)..' - swap two columns', true)
+    helpers_chat.add_info_to_chat('  '..(_addon.shortname):color(220)..' '..('column_order reset'):color(220)..' - reset to default order', true)
+end
+
+function helpers_commands.handle_compass_icon_command(commands)
+    if not commands[2] then
+        helpers_commands.show_compass_icons()
+        return
+    end
+    
+    local direction = commands[2]:upper()
+    local valid_directions = {'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'}
+
+    if not table.contains(valid_directions, direction) then
+        helpers_chat.add_error_to_chat('Invalid compass direction. Valid: N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW')
+        return
+    end
+    
+    if not commands[3] then
+        -- Show current icon for this direction
+        local current_icon = helpers_config.settings.compass_icons[direction]
+        helpers_chat.add_info_to_chat('Current ' .. direction .. ' icon: ' .. current_icon)
+        return
+    end
+    
+    local new_icon = commands[3]
+    
+    -- Validate icon isn't too long (optional)
+    if string.len(new_icon) > 3 then
+        helpers_chat.add_warning_to_chat('Icon is longer than 3 characters, this may cause alignment issues')
+    end
+    
+    helpers_config.settings.compass_icons[direction] = new_icon
+    helpers_config.save_settings()
+    helpers_chat.add_success_to_chat('Set ' .. direction .. ' compass icon to: ' .. new_icon)
+    
+    -- Refresh display if visible
+    if helpers_display.display.visible then
+        helpers_display.update_display()
+    end
+end
+
+function helpers_commands.show_compass_icons()
+    helpers_chat.add_info_to_chat('compass icon settings:')
+    local directions = {'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'}
+    for _, dir in ipairs(directions) do
+        local icon = helpers_config.settings.compass_icons[dir]
+        helpers_chat.add_info_to_chat('  ' .. dir .. ': ' .. icon, true)
+    end
+end
+
+-- Handle data source command
+function helpers_commands.handle_data_source_command(commands)
+    local setting = commands[2]:lower()
+    local value = commands[3] and commands[3]:lower() or ''
+    
+    if setting == 'party_member_compass_source' or setting == 'pmcs' then
+        if value == 'character' or value == 'camera' then
+            helpers_config.settings.data_sources.party_member_compass_source = value
+            helpers_chat.add_info_to_chat('Party member compass source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current party member compass source: ' .. helpers_config.settings.data_sources.party_member_compass_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: character or camera')
+        end
+    elseif setting == 'target_distance_source' or setting == 'tds' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_distance_source = value
+            helpers_chat.add_info_to_chat('Target distance source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target distance source: ' .. helpers_config.settings.data_sources.target_distance_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting == 'target_compass_source' or setting == 'tcs' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_compass_source = value
+            helpers_chat.add_info_to_chat('Target compass source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target compass source: ' .. helpers_config.settings.data_sources.target_compass_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting == 'target_compass_icon_source' or setting == 'tcis' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_compass_icon_source = value
+            helpers_chat.add_info_to_chat('Target compass icon source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target compass icon source: ' .. helpers_config.settings.data_sources.target_compass_icon_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting == 'target_player_calculation' or setting == 'tpc' then
+        if value == 'character' or value == 'camera' then
+            helpers_config.settings.data_sources.target_player_calculation = value
+            helpers_chat.add_info_to_chat('Target player calculation method set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target player calculation: ' .. helpers_config.settings.data_sources.target_player_calculation)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: character or camera')
+        end
+    else
+        helpers_chat.add_error_to_chat('Unknown data source setting. Use: party_member_compass_source, target_distance_source, target_compass_source, target_compass_icon_source, target_player_calculation')
+    end
+end
+
+-- Handle individual data source setting commands
+function helpers_commands.handle_data_source_setting(commands, setting_key)
+    local value = commands[2] and commands[2]:lower() or ''
+    
+    if setting_key == 'party_member_compass_source' then
+        if value == 'character' or value == 'camera' then
+            helpers_config.settings.data_sources.party_member_compass_source = value
+            helpers_chat.add_info_to_chat('Party member compass source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current party member compass source: ' .. helpers_config.settings.data_sources.party_member_compass_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: character or camera')
+        end
+    elseif setting_key == 'target_distance_source' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_distance_source = value
+            helpers_chat.add_info_to_chat('Target distance source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target distance source: ' .. helpers_config.settings.data_sources.target_distance_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting_key == 'target_compass_source' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_compass_source = value
+            helpers_chat.add_info_to_chat('Target compass source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target compass source: ' .. helpers_config.settings.data_sources.target_compass_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting_key == 'target_compass_icon_source' then
+        if value == 'member' or value == 'player' then
+            helpers_config.settings.data_sources.target_compass_icon_source = value
+            helpers_chat.add_info_to_chat('Target compass icon source set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target compass icon source: ' .. helpers_config.settings.data_sources.target_compass_icon_source)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: member or player')
+        end
+    elseif setting_key == 'target_player_calculation' then
+        if value == 'character' or value == 'camera' then
+            helpers_config.settings.data_sources.target_player_calculation = value
+            helpers_chat.add_info_to_chat('Target player calculation method set to: ' .. value)
+            helpers_display.update_display()
+        elseif value == '' then
+            helpers_chat.add_info_to_chat('Current target player calculation: ' .. helpers_config.settings.data_sources.target_player_calculation)
+        else
+            helpers_chat.add_error_to_chat('Invalid value. Use: character or camera')
+        end
+    end
+end
+
+-- Show all data source settings
+function helpers_commands.show_data_source_status()
+    helpers_chat.add_info_to_chat('data source settings:')
+    helpers_chat.add_info_to_chat('  Party member compass source: ' .. helpers_config.settings.data_sources.party_member_compass_source, true)
+    helpers_chat.add_info_to_chat('  Target distance source: ' .. helpers_config.settings.data_sources.target_distance_source, true)
+    helpers_chat.add_info_to_chat('  Target compass source: ' .. helpers_config.settings.data_sources.target_compass_source, true)
+    helpers_chat.add_info_to_chat('  Target compass icon source: ' .. helpers_config.settings.data_sources.target_compass_icon_source, true)
+    helpers_chat.add_info_to_chat('  Target player calculation: ' .. helpers_config.settings.data_sources.target_player_calculation, true)
 end
 
 return helpers_commands

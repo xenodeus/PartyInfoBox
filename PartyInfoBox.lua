@@ -59,11 +59,12 @@ GLOBAL STATE:
 -- Addon metadata - Required by Windower for addon registration
 _addon.name = 'PartyInfoBox'
 _addon.author = 'Xenodeus'
-_addon.version = '1.1.1'
+_addon.version = '1.2.0'
 _addon.commands = {'PartyInfoBox', 'pib'}  -- Chat commands that trigger this addon
 _addon.shortname = 'pib'                   -- Short form for commands
 
 -- Required Windower libraries - Core functionality provided by Windower
+require('vectors')              -- For vector math operations
 texts = require('texts')        -- For creating text overlay displays
 strings = require('strings')    -- For string manipulation and formatting
 chat = require('chat')          -- For chat commands and message handling
